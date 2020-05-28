@@ -23,6 +23,7 @@ import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.artifacts.ResolverResults;
+import org.gradle.api.internal.file.FileCollectionInternal;
 import org.gradle.api.internal.tasks.TaskDependencyContainer;
 import org.gradle.api.internal.tasks.WorkNodeAction;
 import org.gradle.internal.Factory;
@@ -68,11 +69,18 @@ public class DefaultExecutionGraphDependenciesResolver implements ExecutionGraph
         if (!transformer.requiresDependencies()) {
             return Try.successful(MISSING_DEPENDENCIES);
         }
-        ResolverResults results = artifactResults.create();
-        if (dependencies == null) {
-            dependencies = computeDependencies(componentIdentifier, ComponentIdentifier.class, results.getResolutionResult().getAllComponents(), false);
+        try {
+            ResolverResults results = artifactResults.create();
+            if (dependencies == null) {
+                dependencies = computeDependencies(componentIdentifier, ComponentIdentifier.class, results.getResolutionResult().getAllComponents(), false);
+            }
+            FileCollectionInternal files = filteredResultFactory.resultsMatching(transformer.getFromAttributes(), element -> dependencies.contains(element));
+            // Trigger resolution failure
+            files.getFiles();
+            return Try.successful(new DefaultArtifactTransformDependencies(files));
+        } catch (Exception e) {
+            return Try.failure(e);
         }
-        return Try.successful(new DefaultArtifactTransformDependencies(filteredResultFactory.resultsMatching(transformer.getFromAttributes(), element -> dependencies.contains(element))));
     }
 
     @Override
