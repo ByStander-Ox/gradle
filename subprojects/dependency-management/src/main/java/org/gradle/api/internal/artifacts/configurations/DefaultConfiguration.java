@@ -316,6 +316,7 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
         }
     }
 
+    @VisibleForTesting
     public InternalState getResolvedState() {
         return resolvedState;
     }
@@ -559,6 +560,10 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
         assertIsResolvable();
         warnIfConfigurationIsDeprecatedForResolving();
 
+        if (resolvedState.compareTo(requestedState) >= 0) {
+            return;
+        }
+
         if (!owner.getModel().hasMutableState()) {
             if (!GradleThread.isManaged()) {
                 // Error if we are executing in a user-managed thread.
@@ -568,8 +573,8 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
                 // lenient locking.
                 DeprecationLogger.deprecateBehaviour("The configuration " + identityPath.toString() + " was resolved without accessing the project in a safe manner.  This may happen when a configuration is resolved from a different project.")
                     .willBeRemovedInGradle7()
-                    .withUserManual("viewing_debugging_dependencies", "sub:resolving-unsafe-configuration-resolution-errors");
-//                    .nagUser();
+                    .withUserManual("viewing_debugging_dependencies", "sub:resolving-unsafe-configuration-resolution-errors")
+                    .nagUser();
                 owner.getModel().withLenientState(() -> resolveExclusively(requestedState));
             }
         } else {
@@ -1792,7 +1797,7 @@ public class DefaultConfiguration extends AbstractFileCollection implements Conf
 
         @Override
         public void run(NodeExecutionContext context) {
-            configuration.resolveExclusively(GRAPH_RESOLVED);
+            configuration.resolveExclusively(ARTIFACTS_RESOLVED);
         }
     }
 }
